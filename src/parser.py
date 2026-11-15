@@ -1,7 +1,8 @@
 import os
+import time
 from dotenv import load_dotenv
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 from pydantic import BaseModel, Field
 
 load_dotenv()
@@ -27,7 +28,7 @@ class RepairOrder(BaseModel):
 
 
 # 2. Extract structured data using Gemini 4 Hydrogen
-def parse_repair_order(raw_text: str) -> RepairOrder:
+def parse_repair_order(raw_text: str, max_retries: int = 4) -> RepairOrder:
     """Takes raw text from a repair order PDF and returns a validated RepairOrder object."""
     client = genai.Client()
 
@@ -37,22 +38,34 @@ def parse_repair_order(raw_text: str) -> RepairOrder:
         f"{raw_text}"
     )
 
-    response = client.models.generate_content(
-        model="gemini-4-hydrogen",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=RepairOrder,
-            temperature=0.0,  # Zero creativity for deterministic data extraction
-        ),
-    )
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = client.models.generate_content(
+                model="gemini-4-hydrogen",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=RepairOrder,
+                    temperature=0.0,  # Zero creativity for deterministic data extraction
+                ),
+            )
 
-    if not response.text:
-        raise ValueError("Gemini API returned an empty response. Please check the input text and try again.")
+            if not response.text:
+                raise ValueError("Gemini API returned an empty response. Please check the input text and try again.")
 
-    # Validate and return the response directly as a typed Pydantic object
-    return RepairOrder.model_validate_json(response.text)
+            # Validate and return the response directly as a typed Pydantic object
+            return RepairOrder.model_validate_json(response.text)
 
+        except errors.APIError as e:
+            # Retry on transient 503 (Server Unavailable) or 429 (Rate Limit) errors
+            if e.code in (429, 503) and attempt < max_retries:
+                wait_seconds = 2 ** attempt  # Waits 2s, 4s, 8s...
+                print(f"API busy (HTTP {e.code}). Retrying in {wait_seconds}s (attempt {attempt}/{max_retries})...")
+                time.sleep(wait_seconds)
+            else:
+                raise
+
+    raise RuntimeError("Failed to parse repair order after maximum retries.")
 
 # 3. Quick test runner on your sample PDFs
 if __name__ == "__main__":
