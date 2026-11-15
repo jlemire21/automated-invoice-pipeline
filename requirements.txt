@@ -1,0 +1,8 @@
+fpdf2
+pymupdf
+pydantic
+google-genai
+sqlalchemy
+streamlit
+pytest
+python-dotenv
