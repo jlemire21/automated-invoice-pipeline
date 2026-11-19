@@ -126,6 +126,22 @@ def get_all_repair_orders() -> list[dict]:
             )
         return results
 
+def get_line_items_for_ro(ro_number: str) -> list[dict]:
+    """Fetches all line items belonging to a specific repair order number."""
+    init_db()
+    with Session(engine) as session:
+        record = session.query(RepairOrderRecord).filter_by(ro_number=ro_number).first()
+        if not record:
+            return []
+        return [
+            {
+                "Description": item.description,
+                "Qty / Hrs": item.quantity,
+                "Unit Price": f"${item.unit_price:.2f}",
+                "Line Total": f"${item.line_total:.2f}",
+            }
+            for item in record.items
+        ]
 
 # End-to-end test: process all 4 sample PDFs into SQLite
 if __name__ == "__main__":
