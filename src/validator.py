@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from parser import RepairOrder
+from src.parser import RepairOrder
 
 
 class ValidationResult(BaseModel):

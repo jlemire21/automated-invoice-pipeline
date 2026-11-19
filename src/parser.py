@@ -47,6 +47,7 @@ def parse_repair_order(raw_text: str, max_retries: int = 4) -> RepairOrder:
                     response_mime_type="application/json",
                     response_schema=RepairOrder,
                     temperature=0.0,  # Zero creativity for deterministic data extraction
+                    thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW),
                 ),
             )
 

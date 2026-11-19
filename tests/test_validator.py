@@ -1,8 +1,8 @@
 import sys
 from pathlib import Path
 
-from parser import LineItem, RepairOrder
-from validator import validate_repair_order
+from src.parser import LineItem, RepairOrder
+from src.validator import validate_repair_order
 
 
 def make_valid_ro() -> RepairOrder:
@@ -81,3 +81,16 @@ def test_catches_invalid_vin_length():
     result = validate_repair_order(ro)
     assert result.is_valid is False
     assert any("Invalid VIN length" in err for err in result.errors)
+
+def test_allows_negative_core_return_credit():
+    ro = make_valid_ro()
+    ro.items.append(
+        LineItem(description="Alternator Core Charge", quantity=1.0, unit_price=45.00, line_total=45.00)
+    )
+    ro.items.append(
+        LineItem(description="Alternator Core Return", quantity=1.0, unit_price=-45.00, line_total=-45.00)
+    )
+    # Subtotal remains 140.00, tax 19.60, total 159.60
+    result = validate_repair_order(ro)
+    assert result.is_valid is True
+    assert result.errors == []
